@@ -1,0 +1,25 @@
+name = Migrate Example
+description = Migrate data from Posgtresql databbase
+package = Custom
+core = 7.x
+
+dependencies[] = migrate
+
+
+files[] = migrations/cgtt_product/ProjectMigration.inc
+files[] = migrations/cgtt_product/TaxonomyMigration.inc
+files[] = migrations/cgtt_product/SubjectTermMigration.inc
+files[] = migrations/cgtt_product/RequerimentTermMigration.inc
+files[] = migrations/cgtt_product/CompanyTermMigration.inc
+files[] = migrations/cgtt_product/PrivateVersionMigration.inc
+files[] = migrations/cgtt_product/PublicVersionMigration.inc
+files[] = migrations/cgtt_product/TagTermMigration.inc
+files[] = migrations/cgtt_product/ConsejeriaTermMigration.inc
+files[] = migrations/cgtt_product/NewSubjectMigration.inc
+files[] = migrations/cgtt_product/NewsMigration.inc
+files[] = migrations/cgtt_product/TipologyMigration.inc
+files[] = migrations/cgtt_product/DocumentationMigration.inc
+
+
+
+files[] = src/CgttBaseMigration.inc
