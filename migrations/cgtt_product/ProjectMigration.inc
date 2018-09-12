@@ -6,8 +6,8 @@ class ProjectMigration extends CgttBaseMigration {
 	public function __construct($arguments) {
 		parent::__construct($arguments);
 		$query = Database::getConnection($this->cgttConection, $this->cgttConectionKey)
-			->select('productos_new')
-			->fields('productos_new', array('group_id',
+			->select('products')
+			->fields('products', array('group_id',
 				'group_name',
 				'unix_group_name',
 				'short_description',
@@ -123,7 +123,7 @@ class ProjectMigration extends CgttBaseMigration {
 
 	public function complete($entity, stdClass $row) {
 		$transition = new WorkflowTransition();
-		$transition->setValues('node', $entity, '', $entity->workflow, 39, 1, REQUEST_TIME, t('Updating workflow state'));
+		$transition->setValues('node', $entity, '', $entity->workflow, 39, 1, REQUEST_TIME, t('Updating workflow state')); // 39 is the workflow state id of published node.
 		$transition->execute(TRUE);
 	}
 

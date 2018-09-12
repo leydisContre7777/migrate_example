@@ -10,8 +10,8 @@ class DocumentationMigration extends  CgttBaseMigration {
 	public function __construct($arguments) {
 		parent::__construct($arguments);
 		$query = Database::getConnection($this->cgttConection, $this->cgttConectionKey)
-			->select('documentacion')
-			->fields('documentacion', array('docid',
+			->select('documentation')
+			->fields('documentation', array('docid',
 				'nombre',
 				'descripcion',
 				'documento',

@@ -1,5 +1,5 @@
 name = Migrate Example
-description = Migrate data from Posgtresql databbase
+description = Migrate data from Posgtresql database
 package = Custom
 core = 7.x
 

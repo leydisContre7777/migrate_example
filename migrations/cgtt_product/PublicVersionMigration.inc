@@ -7,17 +7,16 @@
  * Time: 10:28
  */
 class PublicVersionMigration extends CgttBaseMigration {
-	protected  $previousRelease;
-	protected  $nextPreviousRelease;
-	protected  $zipFile;
-	protected  $counter = 0;
-	protected  $fileName;
-	protected  $nextFileName;
-	protected  $previousFileName;
-	protected  $filesPath;
-	protected  $versionName;
-	protected  $file;
-	protected  $setter = 0;
+	protected $previousRelease;
+	protected $nextPreviousRelease;
+	protected $zipFile;
+	protected $counter = 0;
+	protected $fileName;
+	protected $previousFileName;
+	protected $filesPath;
+	protected $versionName;
+	protected $file;
+	protected $setter = 0;
 
 
 	/**
@@ -27,19 +26,24 @@ class PublicVersionMigration extends CgttBaseMigration {
 		parent::__construct($arguments);
 		$query = Database::getConnection($this->cgttConection, $this->cgttConectionKey)
 			->select('public_downloads')
-			->fields('public_downloads', array('file_id',
-				'name',
+			->fields('public_downloads', array(
+				'file_id',
+				'name', #Release name.
 				'release_id',
 				'filename',
 				'group_id',
 				'status_id',
-				'testing',
+				'testing',  #Package name of release
 				'date'
 			));
-		$query->join('groups', 'g', 'g.group_id = public_downloads.group_id');
-		$query->fields('g', array('group_name'));
 
-		$this->filesPath = variable_get('file_public_path', conf_path() . '/files').'/';
+
+
+		//Join with the groups table which contains general data information from projects.
+		$query->join('groups', 'g', 'g.group_id = public_downloads.group_id');
+		$query->fields('g', array('group_name'));  #This is the project name.
+
+		$this->filesPath = variable_get('file_public_path', conf_path() . '/files') . '/';
 
 
 		$this->source = new MigrateSourceSQL($query, array(), NULL, array(map_joinable => FALSE));
@@ -47,7 +51,8 @@ class PublicVersionMigration extends CgttBaseMigration {
 
 		$this->map = new MigrateSQLMap($this->machineName,
 			array(
-				'file_id' => array('type' => 'int',
+				'file_id' => array(
+					'type' => 'int',
 					'unsigned' => TRUE,
 					'not null' => TRUE,
 					'description' => t('Source ID'),
@@ -68,24 +73,14 @@ class PublicVersionMigration extends CgttBaseMigration {
 
 		$this->addFieldMapping('body', 'release_id');
 
-		$this->addFieldMapping('og_group_ref', 'og_group_ref');
+		$this->addFieldMapping('og_group_ref', 'og_group_ref');  #Product reference
 
 		$this->addFieldMapping('field_c_digo_versi_n_producto', 'testing');
 
 
-		$this->addFieldMapping('field_c_digo_versi_n_producto:source_dir')->defaultValue($this->filesPath.'docs');
+		$this->addFieldMapping('field_c_digo_versi_n_producto:source_dir')
+			->defaultValue($this->filesPath . 'docs');
 		$this->addFieldMapping('field_c_digo_versi_n_producto:destination_file', 'testing');
-
-
-		//ignored
-		$this->addFieldMapping('field_c_digo_versi_n_producto:file_class')->issueGroup(t('DNM'));
-		$this->addFieldMapping('field_c_digo_versi_n_producto:preserve_files')->issueGroup(t('DNM'));
-		$this->addFieldMapping('field_c_digo_versi_n_producto:destination_dir')->issueGroup(t('DNM'));
-		$this->addFieldMapping('field_c_digo_versi_n_producto:file_replace')->issueGroup(t('DNM'));
-		$this->addFieldMapping('field_c_digo_versi_n_producto:urlencode')->issueGroup(t('DNM'));
-		$this->addFieldMapping('field_c_digo_versi_n_producto:description')->issueGroup(t('DNM'));
-		$this->addFieldMapping('field_c_digo_versi_n_producto:display')->issueGroup(t('DNM'));
-
 
 
 
@@ -120,84 +115,74 @@ class PublicVersionMigration extends CgttBaseMigration {
 			'path',
 			'translate',
 			'sticky',
-			'uid'));
+			'uid'
+		));
 
 	}
 
 
-	/**
-	 * Default implementation of prepareRow(). This method is called from the source
-	 * plugin upon first pulling the raw data from the source.
-	 * @todo create zip file when the realease_id is repeated.
-	 * @param $current_row
-	 *  Object containing raw source data.
-	 * @return bool
-	 *  TRUE to process this row, FALSE to have the source skip it.
-	 */
+
 	public function prepareRow($currentRow) {
+
+		//Get the project-product using its name.
 		$result = db_select('node', 'n')
 			->fields('n', array('nid', 'title'))
-			->condition('title', '%'.db_like($currentRow->group_name).'%', 'LIKE')
+			->condition('title', '%' . db_like($currentRow->group_name) . '%', 'LIKE')
 			->condition('n.type', 'producto')
 			->execute()
 			->fetchAll();
 
 
 		$currentRow->og_group_ref = $result[0]->nid;
-
 		$this->nextPreviousRelease = $this->previousRelease;
 		$this->previousRelease = $currentRow->release_id;
 		$this->previousFileName = $this->nextFileName;
-		$this->nextFileName = $currentRow->filename;
 		$currentRow->testing = $currentRow->filename;
 
-		//Compare the releases
+		//Compare the releases, to see if the release from previous row is the same than the current one.
 		if ($this->previousRelease == $this->nextPreviousRelease) {
-			//Delete the node because Drupal is saving the node without the zip file
-			$nodes = node_load_multiple(NULL, array('title' =>$currentRow->name));
-			$node = current($nodes);
-
-			if ($node->nid) {
-				node_delete($node->nid);
-			}
-			//Initialize the zip
+			#Initialize the zip
 			if ($this->counter == 0 && file_exists($this->filesPath . $currentRow->filename)) {
 				$this->zipFile = new ZipArchive;
 				$this->setter = 1;
 
-			} else {
+			}
+			else {
 				$this->setter = 0;
 
 			}
 
-			//Open the zip file
+			//Create the zip file
 			if (file_exists($this->filesPath . $currentRow->filename) && $this->counter == 0
-				&& $this->zipFile->open($this->filesPath.'docs/Version-'.$currentRow->release_id.'.zip', ZipArchive::CREATE) === TRUE) {
+				&& $this->zipFile->open($this->filesPath . 'docs/Version-' . $currentRow->release_id . '.zip', ZipArchive::CREATE) === TRUE) {
 				if (file_exists($this->filesPath . $this->previousFileName)) {
 
-					//Adding file to the zip
+					#Adding file to the zip
 					$this->zipFile->addFile($this->filesPath . $this->previousFileName, $this->previousFileName);
 					$this->zipFile->addFile($this->filesPath . $currentRow->filename, $currentRow->filename);
-					$this->file = 'Version-'.$currentRow->release_id.'.zip';
+					$this->file = 'Version-' . $currentRow->release_id . '.zip';
 				}
 			}
-			elseif ($this->counter > 0) {
+			elseif ($this->counter > 0) { #The zip file is already opened, so, we continuing adding files.
 				if (file_exists($this->filesPath . $currentRow->filename)) {
-					$this->zipFile->addFile($this->filesPath . $currentRow->filename, $currentRow->filename);
+					$this->zipFile->addFile($this->filesPath . $currentRow->filename, $currentRow->filename);  #Adding file to the zip
+
 				}
 			}
 			$this->counter = $this->counter + 1;
 			$this->versionName = $currentRow->name;
 
-			return FALSE;
+			return FALSE; #This is to not save the row.
 		}
-		else {
+		else {  #This is a new release.
 
 			if ($this->counter > 0) {
 				$currentRow->filename = $this->zipFile->filename;
-				$currentRow->release_id = 'Versión '.($currentRow->release_id - 1);
+				$currentRow->release_id = 'Versión ' . ($currentRow->release_id - 1);
 
 				$currentRow->name = $this->versionName;
+
+				//If the zip file was created and opened, let's closed it.
 				if ($this->zipFile && $this->setter == 1) {
 					$this->zipFile->close();
 				}
@@ -205,7 +190,7 @@ class PublicVersionMigration extends CgttBaseMigration {
 				$currentRow->testing = $this->file;
 			}
 			else {
-				$currentRow->release_id = 'Versión '.($currentRow->release_id - 1);
+				$currentRow->release_id = 'Versión ' . ($currentRow->release_id - 1);
 			}
 
 		}
